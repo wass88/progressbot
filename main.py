@@ -1,11 +1,13 @@
 import os
+import os.path
 import time
 import sys
+import logging
 from slackclient import SlackClient
 from daemonize import Daemonize
 
-daemon = sys.argv[1] == "-d"
 app_name = "bot_app"
+pid = app_name+".pid"
 
 slack_token = os.environ["SLACK_API_TOKEN"]
 sc = SlackClient(slack_token)
@@ -34,11 +36,21 @@ def main():
     else:
         print("Connection Failed")
 
-if daemon:
-    print("Deamon Mode")
-    
-    d = Daemonize(app=app_name, pid=app_name+".pid",
-                       action=main, keep_fds=keep_fds)
-    d.start()
-else:
+logger = logging.getLogger(__name__)
+d = Daemonize(app=app_name, pid=app_name+".pid", action=main, logger=logger)
+
+daemon = len(sys.argv) >= 2 and sys.argv[1] == "-d"
+kill = len(sys.argv) >= 2 and sys.argv[1] == "-k"
+restart = len(sys.argv) >= 2 and sys.argv[1] == "-r"
+
+if len(sys.argv) < 2:
+    print("NON Daemon Mode")
     main()
+else:
+    if sys.argv[1] == "stop":
+        d.exit()
+    elif sys.argv[1] == "start":
+        print("Daemon Mode: pid =", pid)
+        d.start()
+    else:
+        sys.stderr.write("Unknown Option")
